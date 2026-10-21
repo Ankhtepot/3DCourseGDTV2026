@@ -1,18 +1,30 @@
+using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class Mover : MonoBehaviour
 {
-    [SerializeField] private float xValue;
-    [SerializeField] private float yValue;
-    [SerializeField] private float zValue;
-    
+    [SerializeField] private float moveSpeed = 2f;
+    private InputAction moveAction;
+
+    private void Awake()
+    {
+        moveAction = InputSystem.actions["Move"];
+    }
+
     void Start()
     {
-        
+        moveAction.Enable();
     }
 
     void Update()
     {
-        transform.Translate(new Vector3(xValue, yValue, zValue) * Time.deltaTime);
+        Vector2 input = moveAction.ReadValue<Vector2>();
+        transform.Translate(new Vector3(input.x, 0, input.y) * (Time.deltaTime * moveSpeed));
+    }
+
+    private void OnDisable()
+    {
+        moveAction?.Disable();
     }
 }
