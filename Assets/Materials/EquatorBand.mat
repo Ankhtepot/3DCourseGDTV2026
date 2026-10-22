@@ -26,11 +26,11 @@ Material:
     m_Ints: []
     m_Floats:
     - _Alpha: 0.102
-    - _Intensity: 0
+    - _Intensity: 1
     - _colorLerpCutoff: 0.8
     - _fadePower: 15
-    - _fullCutoff: 0.8
-    - _solidRatio: 0.331
+    - _fullCutoff: 0.866
+    - _solidRatio: 0.521
     m_Colors:
     - _Color: {r: 1, g: 0, b: 0, a: 1}
     - _EndColor: {r: 8.92, g: 0, b: 0, a: 1}

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -6,31 +5,43 @@ public class Mover : MonoBehaviour
 {
     [SerializeField] private float moveSpeed = 2f;
     [SerializeField] private float sprintMultiplier = 2f;
-    private InputAction moveAction;
-    private InputAction sprintAction;
+    
+    private InputAction _moveAction;
+    private InputAction _sprintAction;
+    private Transform _transform;
 
     private void Awake()
     {
-        moveAction = InputSystem.actions["Move"];
-        sprintAction = InputSystem.actions["Sprint"];
+        _moveAction = InputSystem.actions["Move"];
+        _sprintAction = InputSystem.actions["Sprint"];
+        _transform = transform;
     }
 
     void Start()
     {
-        moveAction.Enable();
-        sprintAction.Enable();
+        _moveAction.Enable();
+        _sprintAction.Enable();
     }
 
     void Update()
     {
-        Vector2 input = moveAction.ReadValue<Vector2>();
-        bool isSprinting = sprintAction.ReadValue<float>() > 0.5f;
+        HandlePlayerMovement();
+    }
+
+    private void HandlePlayerMovement()
+    {
+        Vector2 input = _moveAction.ReadValue<Vector2>();
+        bool isSprinting = _sprintAction.ReadValue<float>() > 0.5f;
         float currentSpeed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
-        transform.Translate(new Vector3(input.x, 0, input.y) * (Time.deltaTime * currentSpeed));
+        // Move relative to the player's facing (the camera rotates the player), not in world space
+        Vector3 direction = _transform.rotation * new Vector3(input.x, 0, input.y);
+        Vector3 newPosition = _transform.position + direction * (Time.deltaTime * currentSpeed);
+        _transform.position = newPosition;
     }
 
     private void OnDisable()
     {
-        moveAction?.Disable();
+        _moveAction?.Disable();
+        _sprintAction?.Disable();
     }
 }
