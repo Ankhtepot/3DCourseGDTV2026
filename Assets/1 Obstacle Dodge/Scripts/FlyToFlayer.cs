@@ -1,15 +1,17 @@
 using System;
 using DefaultNamespace;
+using DefaultNamespace.Interfaces;
 using UnityEngine;
 
-public class FlyToFlayer : MonoBehaviour
+public class FlyToFlayer : MonoBehaviour, ISimpleTriggerReceiver
 {
     [SerializeField] private Transform target;
     [SerializeField] private float speed = 5f;
-    [SerializeField] private bool navigateToPlayer = true;
     [SerializeField] private float moveToTargetDelay;
+    [SerializeField] private bool navigateToPlayer = true;
     [SerializeField] private bool isHoming = true;
-
+    [SerializeField] private bool activateOnTrigger = false;
+    
     private bool _isFunctional = true;
     private Vector3 _targetPosition;
 
@@ -33,6 +35,11 @@ public class FlyToFlayer : MonoBehaviour
         }
 
         _targetPosition = target.position;
+        
+        if (activateOnTrigger)
+        {
+            _isFunctional = false;
+        }
     }
 
     private void Update()
@@ -56,12 +63,17 @@ public class FlyToFlayer : MonoBehaviour
         {
             _isFunctional = false;
             Rigidbody rb = GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.angularVelocity = Vector3.zero;
-                rb.linearVelocity = Vector3.zero;
-                rb.useGravity = true;
-            }
+            
+            if (rb == null) return;
+            
+            rb.angularVelocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
+            rb.useGravity = true;
         }
+    }
+    
+    public void OnTriggered()
+    {
+        _isFunctional = true;
     }
 }
