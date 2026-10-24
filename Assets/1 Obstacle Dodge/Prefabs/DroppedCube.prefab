@@ -109,6 +109,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::_1_Obstacle_Dodge.Scripts.TimedGravityEnabler
   delay: 3
+  triggered: 0
 --- !u!114 &1409962912669312004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -134,7 +135,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c480b3bd83a2649488acbf75456ec62a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ObjectHit
-  hitColor: {r: 0, g: 0, b: 0, a: 1}
+  hitColor: {r: 0.6603774, g: 0, b: 0, a: 1}
 --- !u!114 &8494987876005595595
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -147,6 +148,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebddd4b7cf8d421b99612132714ee8b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::_1_Obstacle_Dodge.Scripts.FreezeRBOnInpact
+  destroyOnImpact: 0
+  destroyDelay: 2
+  destroyScaleSpeed: 10
 --- !u!65 &4905892846463839144
 BoxCollider:
   m_ObjectHideFlags: 0
