@@ -46,6 +46,11 @@ namespace _1_Obstacle_Dodge.Scripts
             {
                 gameObject.transform.localScale = Vector3.Lerp(gameObject.transform.localScale, Vector3.zero, Time.deltaTime * destroyScaleSpeed);
                 
+                if (gameObject.transform.localScale.x < 0.2)
+                {
+                    gameObject.transform.localScale = Vector3.zero;
+                }
+                
                 yield return null;
             }
             

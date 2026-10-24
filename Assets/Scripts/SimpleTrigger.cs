@@ -36,11 +36,14 @@ namespace DefaultNamespace
         protected void Trigger()
         {
             if (receivers is not {Count: > 0}) return;
-
-            foreach (ISimpleTriggerReceiver receiver in receivers)
+            
+            receivers.ForEach(receiver =>
             {
-                receiver.OnTriggered();
-            }
+                if (receiver is ISimpleTriggerReceiver simpleTriggerReceiver)
+                {
+                    simpleTriggerReceiver.OnTriggered();
+                }
+            });
         }
     }
 }

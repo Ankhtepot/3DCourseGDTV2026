@@ -1,4 +1,4 @@
-using System;
+using System.Collections;
 using DefaultNamespace;
 using DefaultNamespace.Interfaces;
 using UnityEngine;
@@ -10,12 +10,52 @@ public class FlyToFlayer : MonoBehaviour, ISimpleTriggerReceiver
     [SerializeField] private float moveToTargetDelay;
     [SerializeField] private bool navigateToPlayer = true;
     [SerializeField] private bool isHoming = true;
-    [SerializeField] private bool activateOnTrigger = false;
-    
-    private bool _isFunctional = true;
+    [SerializeField] private bool activateOnTrigger;
+
+    private bool _isFunctional;
     private Vector3 _targetPosition;
 
     private void Awake()
+    {
+        Initiate();
+    }
+
+    private void Update()
+    {
+        if (!_isFunctional)
+            return;
+
+        if (isHoming)
+        {
+            _targetPosition = target.position;
+        }
+
+        // Move towards the target position
+        transform.position = Vector3.MoveTowards(transform.position, _targetPosition, speed * Time.deltaTime);
+    }
+
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Player") || collision.gameObject.IsInLayerMask(Constants.LayoutLayer))
+        {
+            _isFunctional = false;
+            Rigidbody rb = GetComponent<Rigidbody>();
+
+            if (rb == null) return;
+
+            rb.angularVelocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
+            rb.useGravity = true;
+        }
+    }
+
+    public void OnTriggered()
+    {
+        StartCoroutine(Run());
+    }
+
+    private void Initiate()
     {
         if (navigateToPlayer)
         {
@@ -35,45 +75,20 @@ public class FlyToFlayer : MonoBehaviour, ISimpleTriggerReceiver
         }
 
         _targetPosition = target.position;
-        
+
         if (activateOnTrigger)
         {
             _isFunctional = false;
-        }
-    }
-
-    private void Update()
-    {
-        if (!_isFunctional || Time.time < moveToTargetDelay)
             return;
-
-        if (isHoming)
-        {
-            _targetPosition = target.position;
         }
 
-        // Move towards the target position
-        transform.position = Vector3.MoveTowards(transform.position, _targetPosition, speed * Time.deltaTime);
+        // It's not triggered, so we can start moving towards the target after the delay
+        StartCoroutine(Run());
     }
 
-
-    private void OnCollisionEnter(Collision collision)
+    private IEnumerator Run()
     {
-        if (collision.gameObject.CompareTag("Player") || collision.gameObject.IsInLayerMask(Constants.LayoutLayer))
-        {
-            _isFunctional = false;
-            Rigidbody rb = GetComponent<Rigidbody>();
-            
-            if (rb == null) return;
-            
-            rb.angularVelocity = Vector3.zero;
-            rb.linearVelocity = Vector3.zero;
-            rb.useGravity = true;
-        }
-    }
-    
-    public void OnTriggered()
-    {
+        yield return new WaitForSeconds(moveToTargetDelay);
         _isFunctional = true;
     }
 }
