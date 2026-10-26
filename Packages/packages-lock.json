@@ -1,5 +1,15 @@
 {
   "dependencies": {
+    "com.deemos.rodinbridge": {
+      "version": "file:D:/Unity/Packages/Rodin-bridge",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "2.0.0",
+        "com.unity.burst": "1.6.6",
+        "com.unity.collections": "1.2.4"
+      }
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 1,
