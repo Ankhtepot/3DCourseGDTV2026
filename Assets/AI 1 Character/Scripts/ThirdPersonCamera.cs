@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 /// Orbit camera for a third person player. Mouse moves the camera around the target, the mouse wheel zooms
 /// and the camera pulls in when a wall or the ground is between it and the player.
 /// The cursor is locked while playing; Escape frees it, clicking into the game view locks it again.
+/// While IsAiming is set the camera moves in over the right shoulder.
 /// </summary>
 public class ThirdPersonCamera : MonoBehaviour
 {
@@ -28,6 +29,12 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("Distance change per mouse wheel notch.")]
     [SerializeField] private float zoomStep = 0.75f;
 
+    [Header("Aiming")]
+    [SerializeField] private float aimDistance = 1.8f;
+    [Tooltip("Sideways offset of the look-at point while aiming (positive = over the right shoulder).")]
+    [SerializeField] private float aimShoulderOffset = 0.5f;
+    [SerializeField] private float aimBlendSpeed = 10f;
+
     [Header("Collision")]
     [Tooltip("Layers that block the camera. Exclude the player's own layer.")]
     [SerializeField] private LayerMask collisionLayers = ~0;
@@ -36,6 +43,9 @@ public class ThirdPersonCamera : MonoBehaviour
     private float pitch = 15f;
     private float targetDistance;
     private float currentDistance;
+    private float aimBlend;
+
+    public bool IsAiming { get; set; }
 
     private void Start()
     {
@@ -74,14 +84,17 @@ public class ThirdPersonCamera : MonoBehaviour
         }
 
         currentDistance = Mathf.Lerp(currentDistance, targetDistance, 1f - Mathf.Exp(-ZoomSmoothing * Time.deltaTime));
+        aimBlend = Mathf.MoveTowards(aimBlend, IsAiming ? 1f : 0f, aimBlendSpeed * Time.deltaTime);
+        float t = Mathf.SmoothStep(0f, 1f, aimBlend);
+        float distanceNow = Mathf.Lerp(currentDistance, aimDistance, t);
 
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
-        Vector3 pivot = target.position + targetOffset;
+        Vector3 pivot = target.position + targetOffset + rotation * Vector3.right * (aimShoulderOffset * t);
         Vector3 direction = rotation * Vector3.back;
 
         // Pull the camera in front of anything between it and the player
-        float allowedDistance = currentDistance;
-        if (Physics.SphereCast(pivot, CollisionRadius, direction, out RaycastHit hit, currentDistance,
+        float allowedDistance = distanceNow;
+        if (Physics.SphereCast(pivot, CollisionRadius, direction, out RaycastHit hit, distanceNow,
                 collisionLayers, QueryTriggerInteraction.Ignore) && !hit.transform.IsChildOf(target))
         {
             allowedDistance = hit.distance;

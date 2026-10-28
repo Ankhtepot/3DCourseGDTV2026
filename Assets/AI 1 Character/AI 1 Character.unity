@@ -378,6 +378,9 @@ MonoBehaviour:
   minDistance: 1.5
   maxDistance: 10
   zoomStep: 0.75
+  aimDistance: 1.8
+  aimShoulderOffset: 0.5
+  aimBlendSpeed: 10
   collisionLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -571,7 +574,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1357080133724217016, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.05
+      value: 1.7582586
       objectReference: {fileID: 0}
     - target: {fileID: 1357080133724217016, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
       propertyPath: m_LocalPosition.z
@@ -613,6 +616,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 7847703753470270648, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: gripInset
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7847703753470270648, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: playerCamera
+      value: 
+      objectReference: {fileID: 1325961173}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

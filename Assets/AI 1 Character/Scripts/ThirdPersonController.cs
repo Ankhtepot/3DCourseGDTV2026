@@ -4,7 +4,8 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Third person player movement on a CharacterController. WASD / arrows walk relative to the camera,
 /// Caps Lock toggles running, Shift sprints, Space jumps. The character turns to face the direction it moves in
-/// and drives the Animator parameters Speed, Grounded, VerticalSpeed and Jump.
+/// and drives the Animator parameters Speed, MoveX, MoveY, Grounded, VerticalSpeed and Jump.
+/// While IsAiming is set (by the ArcherController) the character faces the camera direction and strafes at aim speed.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class ThirdPersonController : MonoBehaviour
@@ -13,6 +14,8 @@ public class ThirdPersonController : MonoBehaviour
     private static readonly int GroundedHash = Animator.StringToHash("Grounded");
     private static readonly int VerticalSpeedHash = Animator.StringToHash("VerticalSpeed");
     private static readonly int JumpHash = Animator.StringToHash("Jump");
+    private static readonly int MoveXHash = Animator.StringToHash("MoveX");
+    private static readonly int MoveYHash = Animator.StringToHash("MoveY");
 
     // Small constant push into the ground so isGrounded stays true on slopes and steps
     private const float GroundedGravity = -2f;
@@ -28,6 +31,11 @@ public class ThirdPersonController : MonoBehaviour
     [Tooltip("How much the player can steer while in the air (0 = none, 1 = full).")]
     [SerializeField, Range(0f, 1f)] private float airControl = 0.5f;
 
+    [Header("Aiming")]
+    [SerializeField] private float aimMoveSpeed = 1.3f;
+    [Tooltip("Time in seconds to turn towards the camera direction while aiming.")]
+    [SerializeField] private float aimTurnSmoothTime = 0.05f;
+
     [Header("Jumping")]
     [SerializeField] private float jumpHeight = 1.2f;
     [SerializeField] private float gravity = -20f;
@@ -42,6 +50,10 @@ public class ThirdPersonController : MonoBehaviour
     [SerializeField] private Animator animator;
     [Tooltip("Damping time for the animator Speed parameter.")]
     [SerializeField] private float animationDamping = 0.1f;
+    [Tooltip("Turning on the spot at this many degrees per second plays a full stepping animation.")]
+    [SerializeField] private float turnStepRate = 180f;
+    [Tooltip("Speed fed to the animator for stepping while turning on the spot.")]
+    [SerializeField] private float turnStepSpeed = 0.9f;
 
     private CharacterController controller;
     private Vector3 horizontalVelocity;
@@ -51,8 +63,12 @@ public class ThirdPersonController : MonoBehaviour
     private float lastJumpPressedTime = float.NegativeInfinity;
     private bool isJumping;
     private bool runToggled;
+    private float lastYaw;
 
     public bool IsGrounded { get; private set; }
+    public bool IsAiming { get; set; }
+    /// <summary>Yaw added to the camera direction while aiming, so the bow (not the hips) points at the target.</summary>
+    public float AimYawOffset { get; set; }
 
     private void Awake()
     {
@@ -105,25 +121,33 @@ public class ThirdPersonController : MonoBehaviour
 
     private void UpdateHorizontal(Vector2 input, bool sprint)
     {
-        Vector3 moveDirection = Vector3.zero;
-        if (input.sqrMagnitude > 0.01f)
+        // Flatten the camera axes so looking up or down doesn't slow the player
+        Vector3 forward = Vector3.forward;
+        Vector3 right = Vector3.right;
+        if (cameraTransform != null)
         {
-            // Flatten the camera axes so looking up or down doesn't slow the player
-            Vector3 forward = Vector3.forward;
-            Vector3 right = Vector3.right;
-            if (cameraTransform != null)
-            {
-                forward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
-                right = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
-            }
-            moveDirection = forward * input.y + right * input.x;
+            forward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
+            right = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
+        }
 
+        Vector3 moveDirection = Vector3.zero;
+        if (input.sqrMagnitude > 0.01f) moveDirection = forward * input.y + right * input.x;
+
+        if (IsAiming)
+        {
+            // Face where the camera looks and strafe
+            float targetAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg + AimYawOffset;
+            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnVelocity, aimTurnSmoothTime);
+            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+        }
+        else if (moveDirection != Vector3.zero)
+        {
             float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
             float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnVelocity, turnSmoothTime);
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
         }
 
-        float targetSpeed = sprint ? sprintSpeed : runToggled ? runSpeed : walkSpeed;
+        float targetSpeed = IsAiming ? aimMoveSpeed : sprint ? sprintSpeed : runToggled ? runSpeed : walkSpeed;
         Vector3 targetVelocity = moveDirection * targetSpeed;
 
         float control = IsGrounded ? 1f : airControl;
@@ -156,7 +180,20 @@ public class ThirdPersonController : MonoBehaviour
     {
         if (animator == null) return;
 
-        animator.SetFloat(SpeedHash, horizontalVelocity.magnitude, animationDamping, Time.deltaTime);
+        // Turning on the spot: step the feet instead of sliding around (a few steps in place / to the side)
+        float yaw = transform.eulerAngles.y;
+        float yawRate = Mathf.DeltaAngle(lastYaw, yaw) / Mathf.Max(Time.deltaTime, 0.0001f);
+        lastYaw = yaw;
+        float speed = horizontalVelocity.magnitude;
+        float turnStep = IsGrounded ? Mathf.Clamp01(Mathf.Abs(yawRate) / turnStepRate) * Mathf.Clamp01(1f - speed / turnStepSpeed) : 0f;
+
+        animator.SetFloat(SpeedHash, Mathf.Max(speed, turnStep * turnStepSpeed), animationDamping * 2f, Time.deltaTime);
+
+        // Velocity in the character's own space drives the strafe blend while aiming; turning steps sideways into the turn
+        Vector3 localVelocity = transform.InverseTransformDirection(horizontalVelocity);
+        float stepSide = Mathf.Sign(yawRate) * turnStep * turnStepSpeed;
+        animator.SetFloat(MoveXHash, Mathf.Abs(stepSide) > Mathf.Abs(localVelocity.x) ? stepSide : localVelocity.x, animationDamping * 2f, Time.deltaTime);
+        animator.SetFloat(MoveYHash, localVelocity.z, animationDamping, Time.deltaTime);
         animator.SetBool(GroundedHash, IsGrounded);
         animator.SetFloat(VerticalSpeedHash, verticalVelocity);
     }
