@@ -1,6 +1,9 @@
 using System.Collections.Generic;
+using AI_2_Jungle_Parkour.Scripts;
+using DefaultNamespace;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// Runs the jungle parkour course: counts coins, keeps the active checkpoint, respawns the player after a fall,
@@ -18,32 +21,40 @@ public class ParkourCourse : MonoBehaviour
     [Tooltip("Seconds the controls hint stays on screen.")]
     [SerializeField] private float hintDuration = 12f;
 
-    private readonly List<JungleCoin> coins = new List<JungleCoin>();
-    private RespawnTransition transition;
-    private ParkourCheckpoint checkpoint;
-    private float feetOffset;
-    private int collected;
-    private float startTime;
-    private float finishTime = -1f;
-    private string toast;
-    private float toastUntil;
+    private readonly List<JungleCoin> _coins = new();
+    private RespawnTransition _transition;
+    private ParkourCheckpoint _checkpoint;
+    private float _feetOffset;
+    private int _collected;
+    private float _startTime;
+    private float _finishTime = -1f;
+    private string _toast;
+    private float _toastUntil;
 
-    private GUIStyle bigStyle;
-    private GUIStyle smallStyle;
-    private GUIStyle centerStyle;
-    private GUIStyle hintStyle;
+    private GUIStyle _bigStyle;
+    private GUIStyle _smallStyle;
+    private GUIStyle _centerStyle;
+    private GUIStyle _hintStyle;
+    private int _courseGoals;
 
     private void Awake()
     {
         Instance = this;
-        var controller = FindFirstObjectByType<ThirdPersonController>();
+        ThirdPersonController controller = FindAnyObjectByType<ThirdPersonController>();
         Player = controller != null ? controller.GetComponent<CharacterController>() : null;
-        transition = GetComponent<RespawnTransition>();
+        _transition = GetComponent<RespawnTransition>();
+    }
+
+    private void OnEnable()
+    {
+        EventManager.OnPlayerReachedCourseObjective += CourseObjectiveReached;
+        _courseGoals = FindObjectsByType<CourseObjective>().Length;
+        Debug.Log($"Course objectives to complete: {_courseGoals}");
     }
 
     private void Start()
     {
-        coins.AddRange(FindObjectsByType<JungleCoin>(FindObjectsSortMode.None));
+        _coins.AddRange(FindObjectsByType<JungleCoin>());
         if (Player == null)
         {
             Debug.LogError("ParkourCourse needs a player with a ThirdPersonController.");
@@ -52,30 +63,30 @@ public class ParkourCourse : MonoBehaviour
         }
 
         // The controller's pivot isn't at the feet, so remember the gap for respawning
-        feetOffset = Player.transform.position.y - Player.bounds.min.y;
+        _feetOffset = Player.transform.position.y - Player.bounds.min.y;
         Restart(0f);
     }
 
     private void Update()
     {
-        if (transition != null && transition.IsRunning) return;
+        if (_transition != null && _transition.IsRunning) return;
 
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && keyboard.rKey.wasPressedThisFrame) Restart(RestartGlideTime);
 
-        if (checkpoint != null && Player.enabled && Player.bounds.min.y < checkpoint.KillY) Respawn(float.PositiveInfinity);
+        if (_checkpoint != null && Player.enabled && Player.bounds.min.y < _checkpoint.KillY) Respawn(float.PositiveInfinity);
     }
 
     public void CollectCoin(JungleCoin coin)
     {
-        collected++;
+        _collected++;
         AudioPool.Play(SoundSynth.Coin(), 0.5f, Random.Range(0.97f, 1.03f));
-        if (collected == coins.Count) ShowToast("All coins found!", 3f);
+        if (_collected == _coins.Count) ShowToast("All coins found!", 3f);
     }
 
     public void ReachCheckpoint(ParkourCheckpoint reached)
     {
-        if (reached == checkpoint) return;
+        if (reached == _checkpoint) return;
         SetCheckpoint(reached);
         AudioPool.Play(SoundSynth.Checkpoint(), 0.5f);
         ShowToast("Checkpoint", 1.5f);
@@ -83,8 +94,8 @@ public class ParkourCourse : MonoBehaviour
 
     public void Finish()
     {
-        if (finishTime >= 0f) return;
-        finishTime = Time.time - startTime;
+        if (_finishTime >= 0f) return;
+        _finishTime = Time.time - _startTime;
         AudioPool.Play(SoundSynth.Fanfare(), 0.6f);
     }
 
@@ -92,30 +103,30 @@ public class ParkourCourse : MonoBehaviour
     /// A glide time of zero places her there instantly, without the respawn effect.</summary>
     private void Restart(float maxGlideTime)
     {
-        foreach (JungleCoin coin in coins) coin.gameObject.SetActive(true);
-        foreach (TreasureGoal goal in FindObjectsByType<TreasureGoal>(FindObjectsSortMode.None)) goal.ResetGoal();
-        collected = 0;
-        finishTime = -1f;
-        startTime = Time.time;
+        foreach (JungleCoin coin in _coins) coin.gameObject.SetActive(true);
+        foreach (TreasureChest goal in FindObjectsByType<TreasureChest>()) goal.ResetGoal();
+        _collected = 0;
+        _finishTime = -1f;
+        _startTime = Time.time;
         SetCheckpoint(startCheckpoint);
         Respawn(maxGlideTime);
     }
 
     private void SetCheckpoint(ParkourCheckpoint next)
     {
-        if (checkpoint != null) checkpoint.SetLit(false);
-        checkpoint = next;
-        if (checkpoint != null) checkpoint.SetLit(true);
+        if (_checkpoint != null) _checkpoint.SetLit(false);
+        _checkpoint = next;
+        if (_checkpoint != null) _checkpoint.SetLit(true);
     }
 
     private void Respawn(float maxGlideTime)
     {
-        if (checkpoint == null) return;
-        Vector3 position = checkpoint.transform.position + Vector3.up * (feetOffset + 0.05f);
-        Quaternion rotation = checkpoint.transform.rotation;
-        if (transition != null && maxGlideTime > 0f)
+        if (_checkpoint == null) return;
+        Vector3 position = _checkpoint.transform.position + Vector3.up * (_feetOffset + 0.05f);
+        Quaternion rotation = _checkpoint.transform.rotation;
+        if (_transition != null && maxGlideTime > 0f)
         {
-            transition.Play(Player, position, rotation, maxGlideTime);
+            _transition.Play(Player, position, rotation, maxGlideTime);
             return;
         }
 
@@ -128,38 +139,38 @@ public class ParkourCourse : MonoBehaviour
 
     private void ShowToast(string message, float seconds)
     {
-        toast = message;
-        toastUntil = Time.time + seconds;
+        _toast = message;
+        _toastUntil = Time.time + seconds;
     }
 
     private void OnGUI()
     {
-        if (bigStyle == null)
+        if (_bigStyle == null)
         {
-            bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, richText = true };
-            smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, richText = true };
-            centerStyle = new GUIStyle(bigStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 40 };
-            hintStyle = new GUIStyle(smallStyle) { alignment = TextAnchor.MiddleCenter };
+            _bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, richText = true };
+            _smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, richText = true };
+            _centerStyle = new GUIStyle(_bigStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 40 };
+            _hintStyle = new GUIStyle(_smallStyle) { alignment = TextAnchor.MiddleCenter };
         }
 
-        float elapsed = finishTime >= 0f ? finishTime : Time.time - startTime;
-        ShadowLabel(new Rect(24, 18, 400, 40), $"Coins  {collected} / {coins.Count}", bigStyle, new Color(1f, 0.85f, 0.35f));
-        ShadowLabel(new Rect(24, 58, 400, 30), FormatTime(elapsed), smallStyle, Color.white);
+        float elapsed = _finishTime >= 0f ? _finishTime : Time.time - _startTime;
+        ShadowLabel(new Rect(24, 18, 400, 40), $"Coins  {_collected} / {_coins.Count}", _bigStyle, new Color(1f, 0.85f, 0.35f));
+        ShadowLabel(new Rect(24, 58, 400, 30), FormatTime(elapsed), _smallStyle, Color.white);
 
-        if (finishTime >= 0f)
+        if (_finishTime >= 0f)
         {
-            string result = $"Treasure found!\n{collected} / {coins.Count} coins in {FormatTime(finishTime)}\n<size=22>Press R to run it again</size>";
-            ShadowLabel(new Rect(0, Screen.height * 0.3f, Screen.width, 160), result, centerStyle, new Color(1f, 0.85f, 0.35f));
+            string result = $"Treasure found!\n{_collected} / {_coins.Count} coins in {FormatTime(_finishTime)}\n<size=22>Press R to run it again</size>";
+            ShadowLabel(new Rect(0, Screen.height * 0.3f, Screen.width, 160), result, _centerStyle, new Color(1f, 0.85f, 0.35f));
         }
-        else if (Time.time < toastUntil)
+        else if (Time.time < _toastUntil)
         {
-            ShadowLabel(new Rect(0, Screen.height * 0.22f, Screen.width, 60), toast, centerStyle, Color.white);
+            ShadowLabel(new Rect(0, Screen.height * 0.22f, Screen.width, 60), _toast, _centerStyle, Color.white);
         }
 
-        if (Time.time - startTime < hintDuration && finishTime < 0f)
+        if (Time.time - _startTime < hintDuration && _finishTime < 0f)
         {
             ShadowLabel(new Rect(0, Screen.height - 60, Screen.width, 30),
-                "WASD move  ·  Caps Lock run  ·  Shift sprint  ·  Space jump  ·  R restart", hintStyle, Color.white);
+                "WASD move  ·  Caps Lock run  ·  Shift sprint  ·  Space jump  ·  R restart", _hintStyle, Color.white);
         }
     }
 
@@ -172,4 +183,18 @@ public class ParkourCourse : MonoBehaviour
     }
 
     private static string FormatTime(float seconds) => $"{(int)(seconds / 60f)}:{seconds % 60f:00.0}";
+    
+    private void CourseObjectiveReached()
+    {
+        _courseGoals -= 1;
+        if (_courseGoals <= 0)
+        {
+            Finish();
+        }
+    }
+
+    private void OnDisable()
+    {
+        EventManager.OnPlayerReachedCourseObjective -= CourseObjectiveReached;
+    }
 }

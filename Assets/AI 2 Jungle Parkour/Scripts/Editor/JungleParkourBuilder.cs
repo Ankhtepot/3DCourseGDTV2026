@@ -448,10 +448,30 @@ public static class JungleParkourBuilder
         Torch(parent, new Vector3(top.x - 2.6f, top.w, top.y + 2.6f));
         Torch(parent, new Vector3(top.x + 2.6f, top.w, top.y + 2.6f));
 
+        Chest(parent, new Vector3(top.x, top.w, top.y + 1f));
+
+        Coin(coins, top.x + 2f, top.w + 1f, top.y - 2f);
+        Coin(coins, top.x - 1.5f, top.w + 1f, top.y - 0.5f);
+        Coin(coins, top.x + 1.5f, top.w + 1f, top.y + 2f);
+    }
+
+    private const string ChestPrefab = Folder + "/Prefabs/Treasure Chest.prefab";
+
+    /// <summary>Instance of the Treasure Chest prefab; falls back to a box-built chest if the prefab is missing.</summary>
+    private static void Chest(Transform parent, Vector3 position)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ChestPrefab);
+        if (prefab != null)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.transform.position = position;
+            return;
+        }
+
         // Treasure chest with a lid hinged at the back
         var chest = new GameObject("Treasure Chest").transform;
         chest.SetParent(parent);
-        chest.position = new Vector3(top.x, top.w, top.y + 1f);
+        chest.position = position;
         Box("Chest Body", chest, chest.position + new Vector3(0f, 0.35f, 0f), new Vector3(1.3f, 0.7f, 0.85f), wood);
         Box("Chest Band", chest, chest.position + new Vector3(-0.4f, 0.36f, 0f), new Vector3(0.12f, 0.72f, 0.87f), gold, false);
         Box("Chest Band", chest, chest.position + new Vector3(0.4f, 0.36f, 0f), new Vector3(0.12f, 0.72f, 0.87f), gold, false);
@@ -468,12 +488,9 @@ public static class JungleParkourBuilder
         glow.color = new Color(1f, 0.8f, 0.35f);
         glow.range = 6f;
         glow.intensity = 3f;
-        var goal = chest.gameObject.AddComponent<TreasureGoal>();
+        var goal = chest.gameObject.AddComponent<TreasureChest>();
         SetField(goal, "lid", lid);
-
-        Coin(coins, top.x + 2f, top.w + 1f, top.y - 2f);
-        Coin(coins, top.x - 1.5f, top.w + 1f, top.y - 0.5f);
-        Coin(coins, top.x + 1.5f, top.w + 1f, top.y + 2f);
+        chest.gameObject.AddComponent<AI_2_Jungle_Parkour.Scripts.CourseObjective>();
     }
 
     // ---------------------------------------------------------------- Scenery
@@ -842,27 +859,20 @@ public static class JungleParkourBuilder
         light.gameObject.AddComponent<TorchFlicker>();
     }
 
-    private const string CoinModelPath = "Assets/AI 2 Jungle Parkour/Models/Coin_Mayan/Coin_Mayan_Low.fbx";
-    private const string CoinMaterialPath = "Assets/AI 2 Jungle Parkour/Models/Coin_Mayan/M_Coin_Mayan.mat";
+    private const string CoinPrefab = Folder + "/Prefabs/Coin_mayan.prefab";
 
-    /// <summary>Low-poly Mayan coin (faces ±Z, 0.55 m wide); falls back to a flattened gold cylinder if the model is missing.</summary>
+    /// <summary>Instance of the Coin_mayan prefab (which carries its own JungleCoin); falls back to a flattened gold cylinder if the prefab is missing.</summary>
     private static void Coin(Transform parent, float x, float y, float z)
     {
-        var model = AssetDatabase.LoadAssetAtPath<GameObject>(CoinModelPath);
-        var mesh = model != null ? model.GetComponentInChildren<MeshFilter>().sharedMesh : null;
-        GameObject coin;
-        if (mesh != null)
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CoinPrefab);
+        if (prefab != null)
         {
-            coin = new GameObject("Coin", typeof(MeshFilter), typeof(MeshRenderer));
-            coin.transform.SetParent(parent);
-            coin.transform.position = new Vector3(x, y, z);
-            coin.GetComponent<MeshFilter>().sharedMesh = mesh;
-            coin.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(CoinMaterialPath);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.transform.position = new Vector3(x, y, z);
+            if (instance.GetComponent<JungleCoin>() == null) instance.AddComponent<JungleCoin>();
+            return;
         }
-        else
-        {
-            coin = Cylinder("Coin", parent, new Vector3(x, y, z), new Vector3(0.55f, 0.035f, 0.55f), Quaternion.Euler(90f, 0f, 0f), gold, false);
-        }
+        var coin = Cylinder("Coin", parent, new Vector3(x, y, z), new Vector3(0.55f, 0.035f, 0.55f), Quaternion.Euler(90f, 0f, 0f), gold, false);
         coin.AddComponent<JungleCoin>();
     }
 
