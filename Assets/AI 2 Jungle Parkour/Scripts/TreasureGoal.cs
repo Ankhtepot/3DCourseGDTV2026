@@ -1,7 +1,8 @@
+using System;
 using UnityEngine;
 
 /// <summary>
-/// Treasure chest at the end of the course. Reaching it finishes the run and swings the lid open.
+/// Treasure chest necessary to finish the course. They need to be all collected in order to finish the course. The chest lid opens when the player reaches it.
 /// </summary>
 public class TreasureGoal : MonoBehaviour
 {
@@ -13,6 +14,11 @@ public class TreasureGoal : MonoBehaviour
     private bool reached;
     private float open;
 
+    private void Awake()
+    {
+        lid.rotation = Quaternion.identity;
+    }
+
     public void ResetGoal()
     {
         reached = false;
@@ -23,7 +29,7 @@ public class TreasureGoal : MonoBehaviour
     private void Update()
     {
         CharacterController player = ParkourCourse.Player;
-        if (!reached && player != null && player.enabled && player.bounds.SqrDistance(transform.position) < radius * radius)
+        if (!reached && player && player.enabled && player.bounds.SqrDistance(transform.position) < radius * radius)
         {
             reached = true;
             ParkourCourse.Instance.Finish();

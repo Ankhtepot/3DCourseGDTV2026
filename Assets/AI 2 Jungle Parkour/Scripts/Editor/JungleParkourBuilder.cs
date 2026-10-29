@@ -842,9 +842,27 @@ public static class JungleParkourBuilder
         light.gameObject.AddComponent<TorchFlicker>();
     }
 
+    private const string CoinModelPath = "Assets/AI 2 Jungle Parkour/Models/Coin_Mayan/Coin_Mayan_Low.fbx";
+    private const string CoinMaterialPath = "Assets/AI 2 Jungle Parkour/Models/Coin_Mayan/M_Coin_Mayan.mat";
+
+    /// <summary>Low-poly Mayan coin (faces ±Z, 0.55 m wide); falls back to a flattened gold cylinder if the model is missing.</summary>
     private static void Coin(Transform parent, float x, float y, float z)
     {
-        var coin = Cylinder("Coin", parent, new Vector3(x, y, z), new Vector3(0.55f, 0.035f, 0.55f), Quaternion.Euler(90f, 0f, 0f), gold, false);
+        var model = AssetDatabase.LoadAssetAtPath<GameObject>(CoinModelPath);
+        var mesh = model != null ? model.GetComponentInChildren<MeshFilter>().sharedMesh : null;
+        GameObject coin;
+        if (mesh != null)
+        {
+            coin = new GameObject("Coin", typeof(MeshFilter), typeof(MeshRenderer));
+            coin.transform.SetParent(parent);
+            coin.transform.position = new Vector3(x, y, z);
+            coin.GetComponent<MeshFilter>().sharedMesh = mesh;
+            coin.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(CoinMaterialPath);
+        }
+        else
+        {
+            coin = Cylinder("Coin", parent, new Vector3(x, y, z), new Vector3(0.55f, 0.035f, 0.55f), Quaternion.Euler(90f, 0f, 0f), gold, false);
+        }
         coin.AddComponent<JungleCoin>();
     }
 

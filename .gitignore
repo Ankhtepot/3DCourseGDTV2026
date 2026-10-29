@@ -94,6 +94,7 @@ InitTestScene*.unity*
 # Addressables default ignores, before user customizations
 /ServerData
 /[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/Screenshots/*
 /[Aa]ssets/Imported/*
 /[Aa]ssets/AddressableAssetsData/link.xml*
 /[Aa]ssets/Addressables_Temp*
