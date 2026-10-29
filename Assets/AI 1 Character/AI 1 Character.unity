@@ -568,6 +568,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.014
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.141
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.162
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.65252924
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.14902249
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7135921
+      objectReference: {fileID: 0}
+    - target: {fileID: 231915699565853473, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.20684338
+      objectReference: {fileID: 0}
     - target: {fileID: 1357080133724217016, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
       propertyPath: m_LocalPosition.x
       value: 12
@@ -619,6 +647,10 @@ PrefabInstance:
     - target: {fileID: 7847703753470270648, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
       propertyPath: gripInset
       value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7847703753470270648, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7847703753470270648, guid: 11ce5ec9c51e64a4ab4594667ac08921, type: 3}
       propertyPath: playerCamera

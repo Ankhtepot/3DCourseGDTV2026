@@ -85,10 +85,25 @@ public class ThirdPersonCamera : MonoBehaviour
 
         currentDistance = Mathf.Lerp(currentDistance, targetDistance, 1f - Mathf.Exp(-ZoomSmoothing * Time.deltaTime));
         aimBlend = Mathf.MoveTowards(aimBlend, IsAiming ? 1f : 0f, aimBlendSpeed * Time.deltaTime);
+
+        GetPose(out Vector3 position, out Quaternion rotation);
+        transform.SetPositionAndRotation(position, rotation);
+    }
+
+    /// <summary>Turns the orbit to this yaw and pitch, e.g. to face the course after a respawn.</summary>
+    public void SetOrientation(float newYaw, float newPitch)
+    {
+        yaw = newYaw;
+        pitch = Mathf.Clamp(newPitch, minPitch, maxPitch);
+    }
+
+    /// <summary>Where the camera sits for the current orbit, zoom and aim, pulled in front of obstacles.</summary>
+    public void GetPose(out Vector3 position, out Quaternion rotation)
+    {
         float t = Mathf.SmoothStep(0f, 1f, aimBlend);
         float distanceNow = Mathf.Lerp(currentDistance, aimDistance, t);
 
-        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
+        rotation = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 pivot = target.position + targetOffset + rotation * Vector3.right * (aimShoulderOffset * t);
         Vector3 direction = rotation * Vector3.back;
 
@@ -100,7 +115,7 @@ public class ThirdPersonCamera : MonoBehaviour
             allowedDistance = hit.distance;
         }
 
-        transform.SetPositionAndRotation(pivot + direction * allowedDistance, rotation);
+        position = pivot + direction * allowedDistance;
     }
 
     private static void LockCursor(bool locked)

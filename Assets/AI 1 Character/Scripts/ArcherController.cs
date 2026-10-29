@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Longbow archery on top of the ThirdPersonController.
+/// The bow starts holstered on the back (the character moves normally). H holsters / unholsters it; right mouse
+/// unholsters it too. Disabling this component puts the bow back on the back and returns to normal movement.
 /// Right mouse: aim (shoulder camera, face the target, nock an arrow).
 /// Left mouse: hold to pull the string - the longer and further the pull, the stronger the shot - and release to shoot.
 /// A quick click shoots at the lowest power as soon as an arrow is on the string.
@@ -22,6 +24,10 @@ public class ArcherController : MonoBehaviour
     private static readonly int DrawStateHash = Animator.StringToHash("Draw");
     private static readonly int HoldStateHash = Animator.StringToHash("Hold");
     private static readonly int ReleaseStateHash = Animator.StringToHash("Release");
+    private static readonly int ArmedHash = Animator.StringToHash("Armed");
+    private static readonly int UnarmedStateHash = Animator.StringToHash("Unarmed");
+    private static readonly int EquipStateHash = Animator.StringToHash("Equip");
+    private static readonly int DisarmStateHash = Animator.StringToHash("Disarm");
 
     private const int UpperBodyLayer = 1;
     private const float MaxAimDistance = 300f;
@@ -39,6 +45,16 @@ public class ArcherController : MonoBehaviour
     [Tooltip("Arrow shown on the string while drawing.")]
     [SerializeField] private Transform nockedArrow;
     [SerializeField] private GameObject arrowPrefab;
+    [Tooltip("Where the bow sits on the back while holstered (child of the chest bone).")]
+    [SerializeField] private Transform holster;
+
+    [Header("Holster")]
+    [Tooltip("Normalized time in the equip clip when the hand takes the bow off the back.")]
+    [SerializeField, Range(0f, 1f)] private float equipGrabAt = 0.32f;
+    [Tooltip("Normalized time in the disarm clip when the bow goes onto the back.")]
+    [SerializeField, Range(0f, 1f)] private float disarmStowAt = 0.42f;
+    [Tooltip("Seconds the bow takes to settle into the hand / onto the back after the switch.")]
+    [SerializeField] private float switchBlendTime = 0.15f;
 
     [Header("Bow")]
     [Tooltip("How far the string moves back from rest at full draw (sets the Draw blendshape to 100).")]
@@ -112,6 +128,21 @@ public class ArcherController : MonoBehaviour
     private bool inputOverridden;
     private bool overrideAim;
     private bool overridePull;
+    private bool armed;
+    private bool armedReady;
+    private bool bowInHand = true;
+    private float switchProgress = 1f;
+    private Vector3 switchFromPosition;
+    private Quaternion switchFromRotation;
+
+    public bool IsArmed => armed;
+
+    /// <summary>Draw the bow from the back (true) or put it away (false).</summary>
+    public void SetArmed(bool value)
+    {
+        if (!value && engaged) return;   // finish the shot first
+        armed = value;
+    }
 
     /// <summary>Drive aim / pull from code (AI, cutscenes, tests) instead of the mouse. Call ClearInputOverride to go back.</summary>
     public void SetInputOverride(bool aim, bool pull)
@@ -158,25 +189,65 @@ public class ArcherController : MonoBehaviour
             if (clip.name == "standing draw arrow") drawClipLength = clip.length;
     }
 
+    private void OnEnable()
+    {
+        // Start (and come back from being disabled) with the bow on the back
+        armed = false;
+        StowBowNow();
+    }
+
+    private void OnDisable()
+    {
+        if (animator == null) return;
+
+        // Hand control back to plain movement: bow on the back, upper body free
+        StowBowNow();
+        animator.SetBool(ArmedHash, false);
+        animator.SetBool(AimingHash, false);
+        if (animator.isActiveAndEnabled)
+        {
+            animator.Play(UnarmedStateHash, UpperBodyLayer);
+            animator.Play("Locomotion", 0);
+        }
+        if (mover != null) mover.IsAiming = false;
+        if (playerCamera != null) playerCamera.IsAiming = false;
+        if (nockedArrow != null) nockedArrow.gameObject.SetActive(false);
+        if (bowRenderer != null && drawBlendShape >= 0) bowRenderer.SetBlendShapeWeight(drawBlendShape, 0f);
+        if (stringNock != null) stringNock.localPosition = stringRestLocal;
+        stringOffset = stringVelocity = Vector3.zero;
+        aimHeld = pullHeld = shotQueued = firePending = engaged = false;
+    }
+
     private void Update()
     {
         Mouse mouse = Mouse.current;
+        Keyboard keyboard = Keyboard.current;
         bool canControl = mouse != null && Cursor.lockState == CursorLockMode.Locked;
         bool pullWasHeld = pullHeld;
-        aimHeld = inputOverridden ? overrideAim : canControl && mouse.rightButton.isPressed;
-        pullHeld = inputOverridden ? overridePull : canControl && mouse.leftButton.isPressed;
+        bool aimInput = inputOverridden ? overrideAim : canControl && mouse.rightButton.isPressed;
+        bool pullInput = inputOverridden ? overridePull : canControl && mouse.leftButton.isPressed;
+
+        if (keyboard != null && keyboard.hKey.wasPressedThisFrame) SetArmed(!armed);
+        if (aimInput && !armed) SetArmed(true);
+        animator.SetBool(ArmedHash, armed);
 
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(UpperBodyLayer);
         upperState = state.shortNameHash;
         bool releasing = upperState == ReleaseStateHash;
 
+        // Aim and shoot only once the bow is in hand
+        armedReady = armed && upperState != UnarmedStateHash && upperState != EquipStateHash && upperState != DisarmStateHash;
+        aimHeld = armedReady && aimInput;
+        pullHeld = armedReady && pullInput;
+
         // Letting go of the left button always shoots: right away if an arrow is ready, otherwise as soon as one is
-        if (pullWasHeld && !pullHeld) shotQueued = true;
+        if (pullWasHeld && !pullHeld && armedReady) shotQueued = true;
+        if (!armedReady) shotQueued = false;
         if (shotQueued) TryShoot();
         if (releasing) firePending = false;
 
-        engaged = aimHeld || pullHeld || shotQueued || firePending || releasing;
-        animator.SetBool(AimingHash, aimHeld || pullHeld || shotQueued || firePending);
+        engaged = armedReady && (aimHeld || pullHeld || shotQueued || firePending || releasing);
+        animator.SetBool(AimingHash, armedReady && (aimHeld || pullHeld || shotQueued || firePending));
         mover.IsAiming = engaged;
         mover.AimYawOffset = aimYawOffset + yawCorrection;
         if (playerCamera != null) playerCamera.IsAiming = aimHeld;
@@ -242,7 +313,7 @@ public class ArcherController : MonoBehaviour
         bool bowUp = engaged && (drawn || draw > 0.4f) || released && animator.GetCurrentAnimatorStateInfo(UpperBodyLayer).normalizedTime < 0.4f;
         aimWeight = Mathf.MoveTowards(aimWeight, bowUp ? 1f : 0f, 4f * Time.deltaTime);
         ApplySpinePitch();
-        FitBowToHand();
+        UpdateBowPlacement();
 
         if (released && lastUpperState != ReleaseStateHash)
         {
@@ -317,10 +388,59 @@ public class ArcherController : MonoBehaviour
         yawCorrection = Mathf.Clamp(yawCorrection + yawError * Mathf.Clamp01(10f * Time.deltaTime), -45f, 45f);
     }
 
-    private void FitBowToHand()
+    private void UpdateBowPlacement()
     {
         if (bowSocket == null) return;
 
+        // Hand the bow over at the moment the equip / disarm clips reach the back
+        float t = animator.GetCurrentAnimatorStateInfo(UpperBodyLayer).normalizedTime;
+        bool wantInHand = bowInHand;
+        if (upperState == EquipStateHash && t >= equipGrabAt) wantInHand = true;
+        else if (upperState == DisarmStateHash && t >= disarmStowAt) wantInHand = false;
+        else if (upperState == UnarmedStateHash) wantInHand = false;
+        else if (armedReady) wantInHand = true;
+        if (wantInHand != bowInHand) SwitchBow(wantInHand);
+
+        Vector3 position;
+        Quaternion rotation;
+        if (bowInHand) FitBowToHand(out position, out rotation);
+        else if (holster != null) { position = holster.position; rotation = holster.rotation; }
+        else return;
+
+        // Settle smoothly from where the bow was when it changed place
+        if (switchProgress < 1f)
+        {
+            switchProgress = Mathf.MoveTowards(switchProgress, 1f, Time.deltaTime / Mathf.Max(switchBlendTime, 0.001f));
+            float blend = Mathf.SmoothStep(0f, 1f, switchProgress);
+            position = Vector3.Lerp(switchFromPosition, position, blend);
+            rotation = Quaternion.Slerp(switchFromRotation, rotation, blend);
+        }
+        bowSocket.SetPositionAndRotation(position, rotation);
+    }
+
+    private void SwitchBow(bool toHand)
+    {
+        bowInHand = toHand;
+        switchFromPosition = bowSocket.position;
+        switchFromRotation = bowSocket.rotation;
+        switchProgress = 0f;
+        // Parent to what carries the bow, so it stays there even when this component is off
+        Transform carrier = toHand ? bowHand : holster;
+        if (carrier != null) bowSocket.SetParent(carrier, true);
+    }
+
+    private void StowBowNow()
+    {
+        if (bowSocket == null || holster == null) return;
+        bowInHand = false;
+        switchProgress = 1f;
+        bowSocket.SetParent(holster, false);
+        bowSocket.localPosition = Vector3.zero;
+        bowSocket.localRotation = Quaternion.identity;
+    }
+
+    private void FitBowToHand(out Vector3 position, out Quaternion rotation)
+    {
         // The grip goes through the middle of the curled index, middle and ring fingers, along the knuckles
         Vector3 centre = FingerCurlCentre(HumanBodyBones.LeftIndexProximal, HumanBodyBones.LeftIndexIntermediate, HumanBodyBones.LeftIndexDistal)
                        + FingerCurlCentre(HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftMiddleIntermediate, HumanBodyBones.LeftMiddleDistal)
@@ -330,7 +450,8 @@ public class ArcherController : MonoBehaviour
                       - animator.GetBoneTransform(HumanBodyBones.LeftLittleProximal).position).normalized;
         Vector3 forward = Vector3.ProjectOnPlane(bowHand.TransformDirection(gripForwardInHand), up).normalized;
 
-        bowSocket.SetPositionAndRotation(centre + up * gripSlide, Quaternion.LookRotation(forward, up));
+        position = centre + up * gripSlide;
+        rotation = Quaternion.LookRotation(forward, up);
     }
 
     private Vector3 FingerCurlCentre(HumanBodyBones proximal, HumanBodyBones intermediate, HumanBodyBones distal)

@@ -32,7 +32,7 @@ public class ThirdPersonController : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float airControl = 0.5f;
 
     [Header("Aiming")]
-    [SerializeField] private float aimMoveSpeed = 1.3f;
+    [SerializeField] private float aimMoveSpeed = 1.8f;
     [Tooltip("Time in seconds to turn towards the camera direction while aiming.")]
     [SerializeField] private float aimTurnSmoothTime = 0.05f;
 
@@ -67,6 +67,12 @@ public class ThirdPersonController : MonoBehaviour
 
     public bool IsGrounded { get; private set; }
     public bool IsAiming { get; set; }
+    public float HorizontalSpeed => horizontalVelocity.magnitude;
+
+    /// <summary>Raised when a jump starts.</summary>
+    public event System.Action Jumped;
+    /// <summary>Raised on touching the ground after being in the air, with the downward speed at impact.</summary>
+    public event System.Action<float> Landed;
     /// <summary>Yaw added to the camera direction while aiming, so the bow (not the hips) points at the target.</summary>
     public float AimYawOffset { get; set; }
 
@@ -109,11 +115,22 @@ public class ThirdPersonController : MonoBehaviour
         return Vector2.ClampMagnitude(input, 1f);
     }
 
+    /// <summary>Stops all movement and pending jumps, e.g. after the player has been teleported.</summary>
+    public void ResetMotion()
+    {
+        horizontalVelocity = Vector3.zero;
+        verticalVelocity = GroundedGravity;
+        isJumping = false;
+        lastJumpPressedTime = float.NegativeInfinity;
+    }
+
     private void UpdateGrounded()
     {
+        bool wasGrounded = IsGrounded;
         IsGrounded = controller.isGrounded;
         if (IsGrounded)
         {
+            if (!wasGrounded) Landed?.Invoke(-verticalVelocity);
             lastGroundedTime = Time.time;
             if (verticalVelocity < 0f) isJumping = false;
         }
@@ -165,6 +182,7 @@ public class ThirdPersonController : MonoBehaviour
             isJumping = true;
             lastJumpPressedTime = float.NegativeInfinity;
             if (animator != null) animator.SetTrigger(JumpHash);
+            Jumped?.Invoke();
         }
         else if (IsGrounded && verticalVelocity < 0f)
         {
